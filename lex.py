@@ -10,7 +10,7 @@ def lex(chars):
     status = None
     buf = ""
     for c in chars + "\0":
-        print ("  ", status, buf)
+        #print ("  ", status, buf)
 
         if status is None:
             pass
@@ -52,6 +52,8 @@ def lex(chars):
 
         if c in " \n\t":
             continue
+        if c == "\0":
+            yield "TOK", "EOF", "rparen"
 
         buf += c
         if c == "\\":
