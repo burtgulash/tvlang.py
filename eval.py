@@ -6,6 +6,9 @@ import lex
 import parse
 from tvl_types import Value, Token
 
+def right(a, b):
+    return b
+
 def cons(a, b):
     return Value("cons", [a, b])
 
@@ -23,6 +26,7 @@ FNS = {
     ".": Value("func", cons),
     ":": Value("func", cons),
     ",": Value("func", rcons),
+    "|": Value("func", right),
     "as": Value("special", assign),
 }
 
@@ -134,6 +138,19 @@ def eval2(x, env):
             return y
 
 
+def x2str(x):
+    if isinstance(x, Value):
+        if x.T == "cons":
+            return "(" + ".".join(map(x2str, x.value)) + ")"
+        return str(x.value)
+    elif isinstance(x, Token):
+        return f"{x.value}::TOK({x.T})"
+    else:
+        assert isinstance(x, list)
+        return "".join(map(x2str, x))
+
+
+
 if __name__ == "__main__":
     s = sys.argv[1]
     toks = lex.lex(s)
@@ -144,10 +161,10 @@ if __name__ == "__main__":
     })
 
     print("EVAL2")
-    x = eval2(tree, env)
-    print("EVAL2", repr(x))
+    y = eval2(tree, env)
+    print("EVAL2", x2str(y))
 
     print()
     print("EVAL1")
-    x = eval1(tree, env)
-    print("EVAL1", repr(x))
+    y = eval1(tree, env)
+    print("EVAL1", x2str(y))
