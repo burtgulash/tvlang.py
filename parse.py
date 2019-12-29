@@ -43,7 +43,8 @@ def parse(toks, expected_end):
             break
 
         R, end = pparse(toks)
-        assert not end
+        if end:
+            raise Exception("can't END on R")
 
         right_assoc = 0
         op = H[1]
