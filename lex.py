@@ -31,7 +31,7 @@ def lex(chars):
                 status = "string"
                 continue
             raise Exception(f"can't escape this character in string: {c}")
-        elif status in ("symbol", "substitution"):
+        elif status in ("symbol", "var"):
             if c.lower() in abc or c in num or c == "_":
                 buf += c
                 continue
@@ -65,7 +65,7 @@ def lex(chars):
         elif c == '"':
             status = "string"
         elif c.lower() in abc:
-            status = "substitution"
+            status = "var"
         elif c in num or c == "_":
             status = "num"
         elif c in punc:

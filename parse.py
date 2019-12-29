@@ -2,6 +2,8 @@
 import sys
 import lex
 
+from tvl_types import Token
+
 def pp(x):
     if isinstance(x, list):
         return "({})".format("".join(map(pp, x)))
@@ -47,21 +49,25 @@ def parse(toks, expected_end):
             raise Exception("can't END on R")
 
         right_assoc = 0
-        op = H.value
-        if op == ';':
-            lvl = 4
-        elif op == "|":
-            lvl = 3
-            right_assoc = 1
-        elif op == ",":
-            lvl = 2
-        elif op == ".":
+        if isinstance(H, list):
             lvl = 1
-        elif op == ":":
-            lvl = 0
-            right_assoc = 1
         else:
-            lvl = 1
+            assert isinstance(H, Token)
+            op = H.value
+            if op == ';':
+                lvl = 4
+            elif op == "|":
+                lvl = 3
+                right_assoc = 1
+            elif op == ",":
+                lvl = 2
+            elif op == ".":
+                lvl = 1
+            elif op == ":":
+                lvl = 0
+                right_assoc = 1
+            else:
+                lvl = 1
 
         buf.append(flush_til(buf, out_q, lvl - right_assoc))
         buf.append(R)
