@@ -6,7 +6,7 @@ def pp(x):
     if isinstance(x, list):
         return "({})".format("".join(map(pp, x)))
     else:
-        return x[1]
+        return x.value
 
 def flush_til(buf, out_q, lvl):
     R = buf.pop()
@@ -20,9 +20,9 @@ def flush_til(buf, out_q, lvl):
 
 def pparse(toks):
     tok = next(toks)
-    if tok[2] == "rparen":
+    if tok.T == "rparen":
         x, end = tok, True
-    elif tok[2] == "lparen":
+    elif tok.T == "lparen":
         x, end = parse(toks, ")"), None
     else:
         x, end = tok, None
@@ -32,14 +32,14 @@ def parse(toks, expected_end):
     buf, out_q = [], []
 
     L, end = pparse(toks)
-    if end and L[1] == expected_end:
+    if end and L.value == expected_end:
         return "()"
 
     buf.append(L)
 
     while True:
         H, end = pparse(toks)
-        if end and H[1] == expected_end:
+        if end and H.value == expected_end:
             break
 
         R, end = pparse(toks)
@@ -47,7 +47,7 @@ def parse(toks, expected_end):
             raise Exception("can't END on R")
 
         right_assoc = 0
-        op = H[1]
+        op = H.value
         if op == ';':
             lvl = 4
         elif op == "|":

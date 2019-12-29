@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import sys
+
 import lex
 import parse
+from tvl_types import Value, Token
 
 def cons(a, b):
-    return "VAL", [a, b], "CONS"
+    return Value("cons", [a, b])
 
 fns = {
     ".": cons,
@@ -13,69 +15,66 @@ fns = {
     ",": cons,
 }
 
-def evalu(x):
+def eval1(x):
     if isinstance(x, list):
-        L = evalu(x[0])
-        H = evalu(x[1])
-        R = evalu(x[2])
+        L = eval1(x[0])
+        H = eval1(x[1])
+        R = eval1(x[2])
 
-        fn = fns[H[1]]
-        x = fn(L, R)
-    elif isinstance(x, tuple):
-        if x[0] == "TOK":
-            if x[2] == "num":
-                x = "VAL", int(x[1]), "num"
-        elif x[0] == "VAL":
-            pass
+        fn = fns[H.value]
+        y = fn(L, R)
+    elif isinstance(x, Token):
+        if x.T == "num":
+            y = Value("num", int(x.value))
+        elif x.T == "punc":
+            y = Value("var", x.value)
         else:
-            raise AssertionError("eval: Can only be TOK or VAL")
+            raise Exception("Can't parse this")
+    elif isinstance(x, Value):
+        y = x
     else:
         raise AssertionError("eval: Can only process list or TUPLE")
-    return x
+    return y
 
 def eval2(x):
     st = [[x, None, None, None, "return"]]
     skip = 0
 
     while True:
-        if isinstance(x, list):
+        if isinstance(x, Value):
+            y = x
+
+        elif isinstance(x, Token):
+            if x.T == "num":
+                y = Value("num", int(x.value))
+            elif x.T == "punc":
+                y = Value("var", x.value)
+            else:
+                raise Exception("Can't parse this")
+
+        elif isinstance(x, list):
             #print("ST", [f[1:] for f in st])
             if skip == 0:
                 frame = [x, None, None, None, "L"]
                 st.append(frame)
-                x = x[0]
+                skip, x = 0, x[0]
                 continue
             if skip == 1:
                 st[-1][4] = "H"
-                x = x[1]
+                skip, x = 0, x[1]
                 continue
             if skip == 2:
                 st[-1][4] = "R"
-                x = x[2]
+                skip, x = 0, x[2]
                 continue
 
             _, L, H, R, ins = st.pop()
-            print("FN", L, H, R)
+            #print("FN", L, H, R)
 
-            fn = fns[H[1]]
+            fn = fns[H.value]
             y = fn(L, R)
-
-        elif isinstance(x, tuple):
-            if x[0] == "TOK":
-                if x[2] == "num":
-                    y = "VAL", int(x[1]), "num"
-                elif x[2] == "punc":
-                    y = "VAL", x[1], "var"
-                else:
-                    raise Exception("Can't process this type")
-            elif x[0] == "VAL":
-                y = x
-            else:
-                raise AssertionError("eval: Can only be TOK or VAL")
-
         else:
-            raise AssertionError("eval: Can only process list or TUPLE")
-
+            raise AssertionError("eval: Can only process TVL types")
 
         ins = st[-1][4]
         x = st[-1][0]
@@ -96,5 +95,9 @@ if __name__ == "__main__":
     s = sys.argv[1]
     toks = lex.lex(s)
     tree = parse.parse(toks, "EOF")
+
     x = eval2(tree)
-    print(x)
+    print(repr(x))
+
+    x = eval1(tree)
+    print(repr(x))
