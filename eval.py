@@ -74,7 +74,7 @@ def eval1(x, env):
     return y
 
 def eval2(x, env):
-    st = [[x, None, None, None, "return", env]]
+    st = []
     skip = 0
 
     while True:
@@ -96,23 +96,21 @@ def eval2(x, env):
         elif isinstance(x, list):
             #print("ST", [f[1:] for f in st])
             if skip == 0:
-                frame = [x, None, None, None, "L", env]
+                frame = [None, None, None, skip, x, env]
                 st.append(frame)
                 skip, x = 0, x[0]
                 continue
             if skip == 1:
-                st[-1][4] = "H"
+                frame[3] = skip
                 skip, x = 0, x[1]
                 continue
             if skip == 2:
-                st[-1][4] = "R"
+                frame[3] = skip
                 skip, x = 0, x[2]
                 continue
 
-            _, L, H, R, ins, env = st.pop()
-            #print("FN", L, H, R)
+            L, H, R, _, _, env = st.pop()
 
-            #fn = env_lookup(env, H.value)
             fn = H
             if fn.T == "func":
                 y = fn.value(L, R)
@@ -123,18 +121,12 @@ def eval2(x, env):
         else:
             raise AssertionError("eval: Can only process TVL types")
 
-        ins = st[-1][4]
-        x = st[-1][0]
-        if ins == "L":
-            st[-1][1] = y
-            skip = 1
-        elif ins == "H":
-            st[-1][2] = y
-            skip = 2
-        elif ins == "R":
-            st[-1][3] = y
-            skip = 3
-        elif ins == "return":
+        if st:
+            frame = st[-1]
+            skip, x = frame[3], frame[4]
+            frame[skip] = y
+            skip += 1
+        else:
             return y
 
 
