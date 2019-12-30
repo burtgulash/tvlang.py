@@ -15,6 +15,9 @@ def cons(a, b):
 def rcons(a, b):
     return Value("cons", [b, a])
 
+def rettree(a, b):
+    return [Token("num", 100), Token("punc", "."), Token("num", 200)]
+
 def assign(a, b, env):
     #print(repr(b))
     assert b.T == "sym"
@@ -23,11 +26,14 @@ def assign(a, b, env):
     return a
 
 FNS = {
+    "rettree": Value("func", rettree),
     ".": Value("func", cons),
     ":": Value("func", cons),
     ",": Value("func", rcons),
     "|": Value("func", right),
     "as": Value("special", assign),
+    "return": Value("return", "return"),
+    "label": Value("label", "label"),
 }
 
 
@@ -69,15 +75,18 @@ def eval1(x, env):
             y = fn.value(L, R, env)
         else:
             raise Exception(f"Can't process non function: {fn.value}::{fn.T}")
+
+        y = eval1(y, env)
     else:
         raise AssertionError("eval: Can only process list or TUPLE")
     return y
 
 def eval2(x, env):
-    st = []
+    parst, st, label = None, [], "root"
     skip = 0
 
     while True:
+        #print("X", x)
         if isinstance(x, Value):
             if x.T == "var":
                 y = env_lookup(env, x.value)
@@ -104,30 +113,63 @@ def eval2(x, env):
                 frame[3] = skip
                 skip, x = 0, x[1]
                 continue
-            if skip == 2:
-                frame[3] = skip
-                skip, x = 0, x[2]
-                continue
 
-            L, H, R, _, _, env = st.pop()
+            if frame[1].T in ["func", "special", "label", "return"]:
+                if skip == 2:
+                    frame[3] = skip
+                    skip, x = 0, x[2]
+                    continue
+
+            L, H, R, _, _, env = frame
+            #L, H, R, _, _, env = st.pop()
+            st.pop()
 
             fn = H
             if fn.T == "func":
                 y = fn.value(L, R)
             elif fn.T == "special":
                 y = fn.value(L, R, env)
+            #elif fn.T == "return":
+            #    assert L.T == "sym"
+
+            #    #while st:
+            #    #    break
+            #        #c = st
+            #        #if label == L.T:
+
+            #    st = []
+            #    skip = 0
+            #    x = R
+            #    continue
+
+
+            #    # NOTE plain return:
+            #    #st = []
+            #    #y = R
+            #elif fn.T == "label":
+            #    parst = (parst, st, label)
+            #    assert L.T == "sym"
+            #    st, label = [], L.value
             else:
                 raise Exception(f"Can't process non function: {fn.value}::{fn.T}")
+
+            x = y
+            skip = 0
+            continue
         else:
             raise AssertionError("eval: Can only process TVL types")
+
+        while not st and parst:
+            parst, st, label = parst
 
         if st:
             frame = st[-1]
             skip, x = frame[3], frame[4]
             frame[skip] = y
             skip += 1
-        else:
-            return y
+            continue
+
+        return y
 
 
 def x2str(x):
