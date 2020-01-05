@@ -106,7 +106,7 @@ def eval2(x, env):
             else:
                 raise Exception("Can't parse this")
         elif isinstance(x, list):
-            #print("ST", [f[1:] for f in st])
+            #print("ST", x2str(x), [(f[3], x2str(f[4])) for f in st])
 
 # TODO for Tail Call Optimization
 #            if skip == -1:
@@ -124,11 +124,14 @@ def eval2(x, env):
                 skip, x = 0, x[1]
                 continue
 
-            if frame[1].T in ["builtin", "special", "label", "return"]:
-                if skip == 2:
+            if skip == 2:
+                if frame[1].T in ["builtin", "special"]:
                     frame[3] = skip
                     skip, x = 0, x[2]
                     continue
+                else:
+                    frame[2] = x[2]
+
 
             L, H, R, _, _, env = frame
             #L, H, R, _, _, env = st.pop()
@@ -145,32 +148,40 @@ def eval2(x, env):
                 if True:
                     # TODO TCO
                     env = (fn_env, {"fuu": Value("num", -1)})
-            #elif fn.T == "return":
-            #    assert L.T == "sym"
+            elif fn.T == "cont":
+                for k_st, k_label in fn.value:
+                    parst, st, label = (parst, st, label), k_st.copy(), k_label
 
-            #    #while st:
-            #    #    break
-            #        #c = st
-            #        #if label == L.T:
+                skip, x = 0, L
+                continue
+            elif fn.T == "return":
+                assert L.T == "sym"
+                until_label = L.value
 
-            #    st = []
-            #    skip = 0
-            #    x = R
-            #    continue
+                ks = []
+                while True:
+                    ks.append((st, label))
+                    if not parst:
+                        raise Exception(f"Couldn't return to label '{until_label}'")
+                    cur_label = label
+                    parst, st, label = parst
+                    if cur_label == until_label:
+                        break
+                ks.reverse()
 
+                env = (env, {"K": Value("cont", ks)})
+                skip, x = 0, R
+                continue
+            elif fn.T == "label":
+                assert L.T == "sym"
+                parst, st, label = (parst, st, label), [], L.value
 
-            #    # NOTE plain return:
-            #    #st = []
-            #    #y = R
-            #elif fn.T == "label":
-            #    parst = (parst, st, label)
-            #    assert L.T == "sym"
-            #    st, label = [], L.value
+                skip, x = 0, R
+                continue
             else:
                 raise Exception(f"Can't process non function: {fn.value}::{fn.T}")
 
-            x = y
-            skip = 0
+            skip, x = 0, y
             continue
         else:
             raise AssertionError("eval: Can only process TVL types")
@@ -194,7 +205,9 @@ def x2str(x):
             return "(" + ".".join(map(x2str, x.value)) + ")"
         return str(x.value)
     elif isinstance(x, Token):
-        return f"{x.value}::TOK({x.T})"
+        return str(x.value)
+        # TODO uncomment for more verbose print
+        #return f"{x.value}::TOK({x.T})"
     else:
         assert isinstance(x, list)
         return "".join(map(x2str, x))
@@ -215,7 +228,7 @@ if __name__ == "__main__":
     y = eval2(tree, env)
     print("EVAL2", x2str(y))
 
-    print()
-    print("EVAL1")
-    y = eval1(tree, env)
-    print("EVAL1", x2str(y))
+    #print()
+    #print("EVAL1")
+    #y = eval1(tree, env)
+    #print("EVAL1", x2str(y))

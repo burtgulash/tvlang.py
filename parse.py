@@ -2,7 +2,7 @@
 import sys
 import lex
 
-from tvl_types import Token
+from tvl_types import Token, Value
 
 def pp(x):
     if isinstance(x, list):
@@ -35,7 +35,7 @@ def parse(toks, expected_end):
 
     L, end = pparse(toks)
     if end and L.value == expected_end:
-        return "()"
+        return Value("nil", "()")
 
     buf.append(L)
 
