@@ -26,11 +26,11 @@ def assign(a, b, env):
     return a
 
 FNS = {
-    "rettree": Value("func", rettree),
-    ".": Value("func", cons),
-    ":": Value("func", cons),
-    ",": Value("func", rcons),
-    "|": Value("func", right),
+    "rettree": Value("builtin", rettree),
+    ".": Value("builtin", cons),
+    ":": Value("builtin", cons),
+    ",": Value("builtin", rcons),
+    "|": Value("builtin", right),
     "as": Value("special", assign),
     "return": Value("return", "return"),
     "label": Value("label", "label"),
@@ -48,37 +48,39 @@ def env_lookup(env, key):
 
 
 def eval1(x, env):
-    if isinstance(x, Value):
-        if x.T == "var":
-            y = env_lookup(env, x.value)
-        else:
-            y = x
-    elif isinstance(x, Token):
-        if x.T == "num":
-            y = Value("num", int(x.value))
-        elif x.T == "symbol":
-            y = Value("sym", x.value[1:])
-        elif x.T in ("punc", "var"):
-            x = Value("var", x.value)
-            y = eval1(x, env)
-        else:
-            raise Exception("Can't parse this")
-    elif isinstance(x, list):
-        L = eval1(x[0], env)
-        H = eval1(x[1], env)
-        R = eval1(x[2], env)
+    while True:
+        if isinstance(x, Value):
+            if x.T == "var":
+                y = env_lookup(env, x.value)
+            else:
+                y = x
+            break
+        elif isinstance(x, Token):
+            if x.T == "num":
+                y = Value("num", int(x.value))
+            elif x.T == "symbol":
+                y = Value("sym", x.value[1:])
+            elif x.T in ("punc", "var"):
+                x = Value("var", x.value)
+                continue
+            else:
+                raise Exception("Can't parse this")
+            break
+        elif isinstance(x, list):
+            L = eval1(x[0], env)
+            H = eval1(x[1], env)
+            R = eval1(x[2], env)
 
-        fn = H
-        if fn.T == "func":
-            y = fn.value(L, R)
-        elif fn.T == "special":
-            y = fn.value(L, R, env)
+            fn = H
+            if fn.T == "builtin":
+                y = fn.value(L, R)
+            elif fn.T == "special":
+                y = fn.value(L, R, env)
+            else:
+                raise Exception(f"Can't process this fn type: {fn.value}::{fn.T}")
+            x = y
         else:
-            raise Exception(f"Can't process non function: {fn.value}::{fn.T}")
-
-        y = eval1(y, env)
-    else:
-        raise AssertionError("eval: Can only process list or TUPLE")
+            raise AssertionError("eval: Can only process list or TUPLE")
     return y
 
 def eval2(x, env):
@@ -86,6 +88,7 @@ def eval2(x, env):
     skip = 0
 
     while True:
+        ins = None
         #print("X", x)
         if isinstance(x, Value):
             if x.T == "var":
@@ -104,6 +107,13 @@ def eval2(x, env):
                 raise Exception("Can't parse this")
         elif isinstance(x, list):
             #print("ST", [f[1:] for f in st])
+
+# TODO for Tail Call Optimization
+#            if skip == -1:
+#                frame = [None, None, None, skip, x, env]
+#                st.append(frame)
+#                skip = 0
+
             if skip == 0:
                 frame = [None, None, None, skip, x, env]
                 st.append(frame)
@@ -114,7 +124,7 @@ def eval2(x, env):
                 skip, x = 0, x[1]
                 continue
 
-            if frame[1].T in ["func", "special", "label", "return"]:
+            if frame[1].T in ["builtin", "special", "label", "return"]:
                 if skip == 2:
                     frame[3] = skip
                     skip, x = 0, x[2]
@@ -125,10 +135,16 @@ def eval2(x, env):
             st.pop()
 
             fn = H
-            if fn.T == "func":
+            if fn.T == "builtin":
                 y = fn.value(L, R)
             elif fn.T == "special":
                 y = fn.value(L, R, env)
+            elif fn.T == "func":
+                fn_body, fn_env = fn.value
+                y = fn_body
+                if True:
+                    # TODO TCO
+                    env = (fn_env, {"fuu": Value("num", -1)})
             #elif fn.T == "return":
             #    assert L.T == "sym"
 
@@ -164,7 +180,7 @@ def eval2(x, env):
 
         if st:
             frame = st[-1]
-            skip, x = frame[3], frame[4]
+            skip, x, env = frame[3], frame[4], frame[5]
             frame[skip] = y
             skip += 1
             continue
@@ -192,6 +208,7 @@ if __name__ == "__main__":
 
     env = (None, {
         **FNS,
+        "FOO": Value("func", (Value("num", 1000), (None, {}))),
     })
 
     print("EVAL2")
