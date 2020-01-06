@@ -17,6 +17,18 @@ def lex(chars):
 
         if status is None:
             pass
+        elif status == "underscore":
+            buf += c
+            if c == "_":
+                continue
+            if c in num:
+                status = "num"
+                continue
+            if c.lower() in abc:
+                status = "var"
+                continue
+            yield Token("num", buf)
+            status, buf = None, ""
         elif status == "string":
             buf += c
             if c == "\\":
@@ -66,7 +78,9 @@ def lex(chars):
             status = "string"
         elif c.lower() in abc:
             status = "var"
-        elif c in num or c == "_":
+        elif c == "_":
+            status = "underscore"
+        elif c in num:
             status = "num"
         elif c in punc:
             status = "punc"
