@@ -12,11 +12,9 @@ def right(a, b, env):
 def cons(a, b, env):
     return Value("cons", [a, b])
 
-def rcons(a, b, env):
-    return Value("cons", [b, a])
-
-def rettree(a, b, env):
-    return [Token("num", 100), Token("punc", "."), Token("num", 200)]
+def plus(a, b, env):
+    assert a.T == b.T == "num"
+    return Value("num", a.value + b.value)
 
 def assign(a, b, env):
     assert b.T == "sym"
@@ -25,7 +23,7 @@ def assign(a, b, env):
     return a
 
 
-def mkfn(a, b, env):
+def mkfn(a, b, env, func_T="func"):
     assert isinstance(a, Value) and a.T == "cons"
     assert isinstance(a.value[0], Value)
 
@@ -40,17 +38,17 @@ def mkfn(a, b, env):
         raise Exception("Can't construct function. Params are either cons or a sym")
     body = a.value[1]
 
-    return Value("func", (env, x, y, body))
+    return Value(func_T, (env, x, y, body))
 
 FNS = {
-    "rettree": Value("builtin", rettree),
+    "+": Value("builtin", plus),
     ".": Value("builtin", cons),
     ":": Value("builtin", cons),
-    ":::": Value("special", cons),
-    ",": Value("builtin", rcons),
-    "|": Value("builtin", right),
+    "|": Value("special", cons),
+    ";": Value("builtin", right),
     "as": Value("builtin", assign),
-    "mkfn": Value("special", mkfn),
+    "fn": Value("special", lambda a, b, env: mkfn(a, b, env, func_T="func")),
+    "sfn": Value("special", lambda a, b, env: mkfn(a, b, env, func_T="special_func")),
     "return": Value("return", "return"),
     "label": Value("label", "label"),
 }
@@ -140,7 +138,7 @@ def eval2(x, env):
                 continue
 
             if skip == 3:
-                if frame[1].T in ("special", "label", "return", "cont"):
+                if frame[1].T in ("special", "special_func", "label", "return", "cont"):
                     frame[2] = x[2]
                 else:
                     frame[3] = skip
@@ -158,7 +156,7 @@ def eval2(x, env):
 
                 skip, x = 0, y
                 continue
-            elif fn.T == "func":
+            elif fn.T in ("func", "special_func"):
                 fn_env, x_name, y_name, fn_body = fn.value
 
                 if "_F" in env and env["_F"] is fn:
