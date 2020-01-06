@@ -121,12 +121,12 @@ def eval2(x, env):
                 continue
 
             if skip == 3:
-                if frame[1].T in ["builtin", "special"]:
+                if frame[1].T in ("label", "return", "cont"):
+                    frame[2] = x[2]
+                else:
                     frame[3] = skip
                     skip, x = 0, x[2]
                     continue
-                else:
-                    frame[2] = x[2]
 
 
             L, H, R, _, _, env = frame
