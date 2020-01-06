@@ -6,32 +6,52 @@ import lex
 import parse
 from tvl_types import Value, Token
 
-def right(a, b):
+def right(a, b, env):
     return b
 
-def cons(a, b):
+def cons(a, b, env):
     return Value("cons", [a, b])
 
-def rcons(a, b):
+def rcons(a, b, env):
     return Value("cons", [b, a])
 
-def rettree(a, b):
+def rettree(a, b, env):
     return [Token("num", 100), Token("punc", "."), Token("num", 200)]
 
 def assign(a, b, env):
-    #print(repr(b))
     assert b.T == "sym"
     env[1][b.value] = a
     #print("ENV", env[1])
     return a
 
+
+def mkfn(a, b, env):
+    assert isinstance(a, Value) and a.T == "cons"
+    assert isinstance(a.value[0], Value)
+
+    L = a.value[0]
+    if L.T == "cons":
+        x, y = L.value[0], L.value[1]
+        print(type(x), x.T, y)
+        assert x.T == y.T == "sym"
+        x, y = x.value, y.value
+    elif L.T == "sym":
+        x, y = a.value, None
+    else:
+        raise Exception("Can't construct function. Params are either cons or a sym")
+    body = a.value[1]
+
+    return Value("func", (env, x, y, body))
+
 FNS = {
     "rettree": Value("builtin", rettree),
     ".": Value("builtin", cons),
     ":": Value("builtin", cons),
+    ":::": Value("special", cons),
     ",": Value("builtin", rcons),
     "|": Value("builtin", right),
-    "as": Value("special", assign),
+    "as": Value("builtin", assign),
+    "mkfn": Value("special", mkfn),
     "return": Value("return", "return"),
     "label": Value("label", "label"),
 }
@@ -73,7 +93,7 @@ def eval1(x, env):
 
             fn = H
             if fn.T == "builtin":
-                y = fn.value(L, R)
+                y = fn.value(L, R, env)
             elif fn.T == "special":
                 y = fn.value(L, R, env)
             else:
@@ -121,7 +141,7 @@ def eval2(x, env):
                 continue
 
             if skip == 3:
-                if frame[1].T in ("label", "return", "cont"):
+                if frame[1].T in ("special", "label", "return", "cont"):
                     frame[2] = x[2]
                 else:
                     frame[3] = skip
@@ -134,16 +154,19 @@ def eval2(x, env):
             st.pop()
 
             fn = H
-            if fn.T == "builtin":
-                y = fn.value(L, R)
-            elif fn.T == "special":
+            if fn.T in ("builtin", "special"):
                 y = fn.value(L, R, env)
             elif fn.T == "func":
-                fn_body, fn_env = fn.value
+                fn_env, x_name, y_name, fn_body = fn.value
+
+                new_env = {x_name: L}
+                if y_name is not None:
+                    new_env[y_name] = R
+                env = (fn_env, new_env)
                 y = fn_body
-                if True:
-                    # TODO TCO
-                    env = (fn_env, {"fuu": Value("num", -1)})
+
+                # TODO TCO
+
             elif fn.T == "cont":
                 for k_st, k_label in fn.value:
                     parst, st, label = (parst, st, label), k_st.copy(), k_label
@@ -198,6 +221,7 @@ def eval2(x, env):
             skip += 1
             continue
 
+        assert isinstance(y, Value)
         return y
 
 
@@ -223,7 +247,7 @@ if __name__ == "__main__":
 
     env = (None, {
         **FNS,
-        "FOO": Value("func", (Value("num", 1000), (None, {}))),
+        "FOO": Value("func", ((None, {}), Value("num", 1000))),
     })
 
     print("EVAL2")
