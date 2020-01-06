@@ -32,7 +32,6 @@ def mkfn(a, b, env):
     L = a.value[0]
     if L.T == "cons":
         x, y = L.value[0], L.value[1]
-        print(type(x), x.T, y)
         assert x.T == y.T == "sym"
         x, y = x.value, y.value
     elif L.T == "sym":
@@ -156,17 +155,23 @@ def eval2(x, env):
             fn = H
             if fn.T in ("builtin", "special"):
                 y = fn.value(L, R, env)
+
+                skip, x = 0, y
+                continue
             elif fn.T == "func":
                 fn_env, x_name, y_name, fn_body = fn.value
 
-                new_env = {x_name: L}
-                if y_name is not None:
-                    new_env[y_name] = R
-                env = (fn_env, new_env)
-                y = fn_body
+                if "_F" in env and env["_F"] is fn:
+                    # Tail Call Optimization
+                    skip, x = 1, fn_body
+                else:
+                    new_env = {"_F": fn, x_name: L}
+                    if y_name is not None:
+                        new_env[y_name] = R
+                    env = (fn_env, new_env)
+                    skip, x = 0, fn_body
 
-                # TODO TCO
-
+                continue
             elif fn.T == "cont":
                 for k_st, k_label in fn.value:
                     parst, st, label = (parst, st, label), k_st.copy(), k_label
@@ -200,8 +205,7 @@ def eval2(x, env):
             else:
                 raise Exception(f"Can't process non function: {fn.value}::{fn.T}")
 
-            skip, x = 0, y
-            continue
+            assert False
         else:
             raise AssertionError("eval: Can only process TVL types")
 
