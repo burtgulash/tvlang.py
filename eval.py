@@ -107,24 +107,20 @@ def eval2(x, env):
                 raise Exception("Can't parse this")
         elif isinstance(x, list):
             #print("ST", x2str(x), [(f[3], x2str(f[4])) for f in st])
-
-# TODO for Tail Call Optimization
-#            if skip == -1:
-#                frame = [None, None, None, skip, x, env]
-#                st.append(frame)
-#                skip = 0
-
             if skip == 0:
                 frame = [None, None, None, skip, x, env]
                 st.append(frame)
+                skip = 1
+            if skip == 1:
+                frame[3] = skip
                 skip, x = 0, x[0]
                 continue
-            if skip == 1:
+            if skip == 2:
                 frame[3] = skip
                 skip, x = 0, x[1]
                 continue
 
-            if skip == 2:
+            if skip == 3:
                 if frame[1].T in ["builtin", "special"]:
                     frame[3] = skip
                     skip, x = 0, x[2]
@@ -169,7 +165,7 @@ def eval2(x, env):
                         break
                 ks.reverse()
 
-                env = (env, {"K": Value("cont", ks)})
+                env = (env, {"_K": Value("cont", ks)})
                 skip, x = 0, R
                 continue
             elif fn.T == "label":
@@ -192,7 +188,13 @@ def eval2(x, env):
         if st:
             frame = st[-1]
             skip, x, env = frame[3], frame[4], frame[5]
-            frame[skip] = y
+            position = {
+                1: 0,
+                2: 1,
+                3: 2,
+            }[skip]
+            frame[position] = y
+            #frame[skip - 1] = y
             skip += 1
             continue
 
