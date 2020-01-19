@@ -4,7 +4,12 @@ import sys
 
 import lex
 import parse
-from tvl_types import Value, Token
+from tvl_types import Value, Token, NIL
+
+TU = 0
+
+def self_apply(a, b, env):
+    return [a, a, NIL]
 
 def right(a, b, env):
     return b
@@ -12,14 +17,23 @@ def right(a, b, env):
 def cons(a, b, env):
     return Value("cons", [a, b])
 
+def println(a, b, env):
+    print("println", a)
+    return a
+
+def sleep(a, b, env):
+    import time
+    time.sleep(1)
+    return a
+
 def plus(a, b, env):
     assert a.T == b.T == "num"
     return Value("num", a.value + b.value)
 
 def assign(a, b, env):
-    assert b.T == "sym"
+    if b.T != "sym":
+        raise Exception(f"ASSIGN expecting b.T == 'sym'. Got '{b.T}'")
     env[1][b.value] = a
-    #print("ENV", env[1])
     return a
 
 
@@ -40,15 +54,33 @@ def mkfn(a, b, env, func_T="func"):
 
     return Value(func_T, (env, x, y, body))
 
+
+def mkfn_arrow(a, b, env, func_T="func"):
+    body = b
+    if a.T == "cons":
+        x, y = a.value[0], a.value[1]
+        assert x.T == y.T == "sym"
+        x, y = x.value, y.value
+    elif a.T == "sym":
+        x, y = a.value, None
+    else:
+        raise Exception("Can't construct function. Params are either cons or a sym")
+
+    return Value(func_T, (env, x, y, body))
+
 FNS = {
+    "println": Value("builtin", println),
+    "sleep": Value("builtin", sleep),
     "+": Value("builtin", plus),
     ".": Value("builtin", cons),
     ":": Value("builtin", cons),
-    "|": Value("special", cons),
+    "|": Value("special", right),
     ";": Value("builtin", right),
+    "sea": Value("builtin", self_apply),
     "as": Value("builtin", assign),
-    "fn": Value("special", lambda a, b, env: mkfn(a, b, env, func_T="func")),
-    "sfn": Value("special", lambda a, b, env: mkfn(a, b, env, func_T="special_func")),
+    #"fn": Value("special", lambda a, b, env: mkfn(a, b, env, func_T="func")),
+    "->": Value("special", lambda a, b, env: mkfn_arrow(a, b, env, func_T="func")),
+    #"sfn": Value("special", lambda a, b, env: mkfn(a, b, env, func_T="special_func")),
     "return": Value("return", "return"),
     "label": Value("label", "label"),
 }
@@ -124,6 +156,7 @@ def eval2(x, env):
                 raise Exception("Can't parse this")
         elif isinstance(x, list):
             #print("ST", x2str(x), [(f[3], x2str(f[4])) for f in st])
+
             if skip == 0:
                 frame = [None, None, None, skip, x, env]
                 st.append(frame)
@@ -140,10 +173,15 @@ def eval2(x, env):
             if skip == 3:
                 if frame[1].T in ("special", "special_func", "label", "return", "cont"):
                     frame[2] = x[2]
+
+                    # TODO it will be popped in a second
+                    frame[3] = skip
+                    skip = 4
                 else:
                     frame[3] = skip
                     skip, x = 0, x[2]
                     continue
+
 
 
             L, H, R, _, _, env = frame
@@ -172,7 +210,8 @@ def eval2(x, env):
                 continue
             elif fn.T == "cont":
                 for k_st, k_label in fn.value:
-                    parst, st, label = (parst, st, label), k_st.copy(), k_label
+                    k_st = [f.copy() for f in k_st]
+                    parst, st, label = (parst, st, label), k_st, k_label
 
                 skip, x = 0, L
                 continue
@@ -231,6 +270,8 @@ def x2str(x):
     if isinstance(x, Value):
         if x.T == "cons":
             return "(" + ".".join(map(x2str, x.value)) + ")"
+        if x.T == "cont":
+            return "(cont)"
         return str(x.value)
     elif isinstance(x, Token):
         return str(x.value)
@@ -238,7 +279,7 @@ def x2str(x):
         #return f"{x.value}::TOK({x.T})"
     else:
         assert isinstance(x, list)
-        return "".join(map(x2str, x))
+        return " ".join(map(x2str, x))
 
 
 
@@ -249,7 +290,6 @@ if __name__ == "__main__":
 
     env = (None, {
         **FNS,
-        "FOO": Value("func", ((None, {}), Value("num", 1000))),
     })
 
     print("EVAL2")

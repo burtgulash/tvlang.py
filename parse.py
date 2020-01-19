@@ -2,11 +2,11 @@
 import sys
 import lex
 
-from tvl_types import Token, Value
+from tvl_types import Token, Value, NIL
 
 def pp(x):
     if isinstance(x, list):
-        return "({})".format("".join(map(pp, x)))
+        return "({})".format(" ".join(map(pp, x)))
     else:
         return x.value
 
@@ -35,7 +35,7 @@ def parse(toks, expected_end):
 
     L, end = pparse(toks)
     if end and L.value == expected_end:
-        return Value("nil", "()")
+        return NIL
 
     buf.append(L)
 

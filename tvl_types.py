@@ -18,7 +18,13 @@ class Value:
         self.value = value
 
     def __repr__(self):
+        if self.T == "builtin":
+            return f"{self.T}"
+        if self.T == "special":
+            return f"{self.T}"
         return f"({self.value}::{self.T})"
 
     def __str__(self):
         return str(self.value)
+
+NIL = Value("nil", "()")
