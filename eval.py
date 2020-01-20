@@ -8,14 +8,34 @@ from tvl_types import Value, Token, NIL
 
 TU = 0
 
-def self_apply(a, b, env):
-    return [a, a, NIL]
+def bind(a, b, env):
+    if isinstance(a, Value) and a.T == "cons":
+        aa, ab = a.value
+        assert ab.T == "num"
+        if ab.value > 0:
+            return aa
+    return b
 
 def right(a, b, env):
     return b
 
+def bool_and(a, b, env):
+    assert a.T == "num"
+    if a.value <= 0:
+        return Value("num", 0)
+    return b
+
+def bool_or(a, b, env):
+    assert a.T == "num"
+    if a.value <= 0:
+        return b
+    return Value("num", 1)
+
 def cons(a, b, env):
     return Value("cons", [a, b])
+
+def revcons(a, b, env):
+    return Value("cons", [b, a])
 
 def println(a, b, env):
     print("println", a)
@@ -29,6 +49,14 @@ def sleep(a, b, env):
 def plus(a, b, env):
     assert a.T == b.T == "num"
     return Value("num", a.value + b.value)
+
+def equals(a, b, env):
+    assert a.T == b.T == "num"
+    return Value("num", int(a.value == b.value))
+
+def minus(a, b, env):
+    assert a.T == b.T == "num"
+    return Value("num", a.value - b.value)
 
 def assign(a, b, env):
     if b.T != "sym":
@@ -71,12 +99,16 @@ def mkfn_arrow(a, b, env, func_T="func"):
 FNS = {
     "println": Value("builtin", println),
     "sleep": Value("builtin", sleep),
+    "==": Value("builtin", equals),
     "+": Value("builtin", plus),
+    "-": Value("builtin", minus),
+    "and": Value("special", bool_and),
+    "or": Value("special", bool_or),
+    "then": Value("builtin", revcons),
     ".": Value("builtin", cons),
     ":": Value("builtin", cons),
-    "|": Value("special", right),
+    "|": Value("special", bind),
     ";": Value("builtin", right),
-    "sea": Value("builtin", self_apply),
     "as": Value("builtin", assign),
     #"fn": Value("special", lambda a, b, env: mkfn(a, b, env, func_T="func")),
     "->": Value("special", lambda a, b, env: mkfn_arrow(a, b, env, func_T="func")),
@@ -171,12 +203,12 @@ def eval2(x, env):
                 continue
 
             if skip == 3:
-                if frame[1].T in ("special", "special_func", "label", "return", "cont"):
+                if frame[1].T in ("special", "special_func", "label", "return", "cont", "num"):
                     frame[2] = x[2]
 
                     # TODO it will be popped in a second
-                    frame[3] = skip
-                    skip = 4
+                    # frame[3] = skip
+                    # skip = 4
                 else:
                     frame[3] = skip
                     skip, x = 0, x[2]
@@ -189,6 +221,13 @@ def eval2(x, env):
             st.pop()
 
             fn = H
+            if fn.T == "num":
+                if fn.value > 0:
+                    y = L
+                else:
+                    y = R
+                skip, x = 0, y
+                continue
             if fn.T in ("builtin", "special"):
                 y = fn.value(L, R, env)
 
