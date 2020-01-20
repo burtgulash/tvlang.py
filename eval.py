@@ -209,6 +209,17 @@ def eval2(x, env):
 
                 continue
             elif fn.T == "cont":
+
+                # Tail call optimization. Pop one level of CStack when only 1 frame in the current one
+                # It assumes that this stack frame is the one where continuation is called.
+                #
+                # TODO add assertion about this?
+                # Answer: there doesn't need to be the assertion, because fn.T
+                # is checked to be "cont", so this frame has to be the cont
+                # frame
+                if len(st) == 1:
+                    parst, st, label = parst
+
                 for k_st, k_label in fn.value:
                     k_st = [f.copy() for f in k_st]
                     parst, st, label = (parst, st, label), k_st, k_label
