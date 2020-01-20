@@ -1,1 +1,5 @@
 \loop label (0 println. ; \loop return (_K) as \k ; 1 println. sleep. | k k k) (\x -> (x x x))()
+
+(\loop label (\loop return (_K) as \k:\i ; i println.sleep. ; (i == 5) then (i:i) | k:(i+1) k k)) as \k0; k0:0 k0.
+
+\n.\body => (\loop label (\loop return (_K) as \k:\i_ ; body ; (1 - i_) then 333  | k:(i_-1) k.) as \k .n k.) as \loop; 5 loop (i_ + i_ println.sleep.)

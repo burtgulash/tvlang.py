@@ -59,9 +59,13 @@ def minus(a, b, env):
     return Value("num", a.value - b.value)
 
 def assign(a, b, env):
-    if b.T != "sym":
+    if b.T == "cons" and a.T == "cons":
+        assign(a.value[0], b.value[0], env)
+        assign(a.value[1], b.value[1], env)
+    elif b.T == "sym":
+        env[1][b.value] = a
+    else:
         raise Exception(f"ASSIGN expecting b.T == 'sym'. Got '{b.T}'")
-    env[1][b.value] = a
     return a
 
 
@@ -112,6 +116,7 @@ FNS = {
     "as": Value("builtin", assign),
     #"fn": Value("special", lambda a, b, env: mkfn(a, b, env, func_T="func")),
     "->": Value("special", lambda a, b, env: mkfn_arrow(a, b, env, func_T="func")),
+    "=>": Value("special", lambda a, b, env: mkfn_arrow(a, b, env, func_T="special_func")),
     #"sfn": Value("special", lambda a, b, env: mkfn(a, b, env, func_T="special_func")),
     "return": Value("return", "return"),
     "label": Value("label", "label"),
@@ -171,6 +176,7 @@ def eval2(x, env):
     while True:
         ins = None
         #print("X", x)
+
         if isinstance(x, Value):
             if x.T == "var":
                 y = env_lookup(env, x.value)
@@ -221,14 +227,19 @@ def eval2(x, env):
             st.pop()
 
             fn = H
-            if fn.T == "num":
+
+            if fn.T == "nil":
+                assert fn is NIL
+                skip, x = 0, NIL
+                continue
+            elif fn.T == "num":
                 if fn.value > 0:
                     y = L
                 else:
                     y = R
                 skip, x = 0, y
                 continue
-            if fn.T in ("builtin", "special"):
+            elif fn.T in ("builtin", "special"):
                 y = fn.value(L, R, env)
 
                 skip, x = 0, y
@@ -256,7 +267,7 @@ def eval2(x, env):
                 # Answer: there doesn't need to be the assertion, because fn.T
                 # is checked to be "cont", so this frame has to be the cont
                 # frame
-                if len(st) == 1:
+                if len(st) == 1 and parst:
                     parst, st, label = parst
 
                 for k_st, k_label in fn.value:
